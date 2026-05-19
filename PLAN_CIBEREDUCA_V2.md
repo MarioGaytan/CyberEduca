@@ -362,7 +362,7 @@ app_settings/global
 ---
 
 ### BLOQUE 0 — Fundamentos del Repositorio
-**Estado:** 🔴 PENDIENTE | **Prioridad:** CRÍTICA | **Prerequisitos:** ninguno
+**Estado:** ✅ DONE | **Prioridad:** CRÍTICA | **Prerequisitos:** ninguno
 
 #### Objetivo
 Crear el monorepo con la estructura de carpetas, configuraciones base, y Firebase inicializado. Este bloque no tiene lógica de negocio — solo la base sobre la que se construye todo.

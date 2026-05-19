@@ -1,0 +1,13 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // BLOQUE 0 — Todo cerrado hasta implementar auth (Bloque 1)
+    // Cambiar estas reglas en el Bloque 1 una vez que auth esté implementado
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+  }
+}

@@ -1,0 +1,14 @@
+# Normalizar line endings para colaboración cross-platform
+* text=auto eol=lf
+
+# Binarios — no convertir
+*.ico binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.svg binary
+*.woff binary
+*.woff2 binary
+*.exe binary
+*.dll binary
