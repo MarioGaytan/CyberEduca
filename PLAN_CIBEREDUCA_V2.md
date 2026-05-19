@@ -478,7 +478,7 @@ Implementar el flujo completo de login con Google, restricción de dominio insti
 ---
 
 ### BLOQUE 2 — Panel de Administración
-**Estado:** 🔴 PENDIENTE | **Prioridad:** CRÍTICA | **Prerequisitos:** BLOQUE 1 ✅
+**Estado:** ✅ DONE | **Prioridad:** CRÍTICA | **Prerequisitos:** BLOQUE 1 ✅
 
 #### Objetivo
 Implementar el panel completo del admin. Este es el control de la plataforma: gestión de usuarios, grupos, contenido y configuración global. Sin este bloque, ningún maestro ni alumno puede operar.

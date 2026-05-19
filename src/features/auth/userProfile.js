@@ -3,6 +3,7 @@ import {
   getDoc,
   setDoc,
   updateDoc,
+  deleteDoc,
   serverTimestamp,
   increment,
 } from 'firebase/firestore'
@@ -14,29 +15,33 @@ export async function createOrUpdateUserProfile(firebaseUser) {
   const snap = await getDoc(userRef)
 
   if (!snap.exists()) {
+    // Orden de prioridad: admin > pre_registered > nuevo pendiente
     const isAdmin = await checkIsAdminEmail(email)
-    await setDoc(userRef, {
-      uid,
-      email,
-      displayName,
-      photoURL,
-      role: isAdmin ? 'admin' : null,
-      status: isAdmin ? 'active' : 'pending',
-      groupId: null,
-      assignedGroups: [],
-      createdAt: serverTimestamp(),
-      lastLogin: serverTimestamp(),
-      metadata: {
-        loginCount: 1,
-        deviceInfo: navigator.userAgent.slice(0, 200),
-      },
-    })
+
+    if (isAdmin) {
+      await setDoc(userRef, buildProfile({ uid, email, displayName, photoURL, role: 'admin', status: 'active' }))
+    } else {
+      // Buscar si el admin pre-registró este email (CSV import) — O(1), clave directa por email
+      const preRegSnap = await getDoc(doc(db, 'pre_registered', email))
+      if (preRegSnap.exists()) {
+        const preReg = preRegSnap.data()
+        await setDoc(userRef, buildProfile({
+          uid, email, displayName, photoURL,
+          role: preReg.role ?? 'estudiante',
+          status: 'active',
+          groupId: preReg.groupId ?? null,
+        }))
+        // Limpiar la entrada pre_registered — ya no se necesita
+        await deleteDoc(doc(db, 'pre_registered', email))
+      } else {
+        await setDoc(userRef, buildProfile({ uid, email, displayName, photoURL, role: null, status: 'pending' }))
+      }
+    }
   } else {
     const data = snap.data()
 
     if (data.status === 'pre_registered') {
-      // Primera vez que este usuario pre-registrado hace login → activar
-      // La regla de Firestore permite este cambio específico (pre_registered → active)
+      // Usuario que existía como pre_registered en la colección users (legacy) → activar
       await updateDoc(userRef, {
         displayName,
         photoURL,
@@ -45,7 +50,7 @@ export async function createOrUpdateUserProfile(firebaseUser) {
         'metadata.loginCount': increment(1),
       })
     } else {
-      // Usuario existente — NUNCA sobreescribir role, status, groupId, assignedGroups
+      // Login normal — NUNCA sobreescribir role, status, groupId, assignedGroups
       await updateDoc(userRef, {
         photoURL,
         lastLogin: serverTimestamp(),
@@ -62,6 +67,25 @@ export async function getUserProfile(uid) {
   return snap.exists() ? snap.data() : null
 }
 
+function buildProfile({ uid, email, displayName, photoURL, role, status, groupId = null }) {
+  return {
+    uid,
+    email,
+    displayName,
+    photoURL,
+    role,
+    status,
+    groupId,
+    assignedGroups: [],
+    createdAt: serverTimestamp(),
+    lastLogin: serverTimestamp(),
+    metadata: {
+      loginCount: 1,
+      deviceInfo: navigator.userAgent.slice(0, 200),
+    },
+  }
+}
+
 async function checkIsAdminEmail(email) {
   try {
     const snap = await getDoc(doc(db, 'app_settings', 'global'))
@@ -69,7 +93,6 @@ async function checkIsAdminEmail(email) {
     const { adminEmails = [] } = snap.data()
     return adminEmails.includes(email)
   } catch {
-    // Si no se puede leer app_settings (reglas aún no configuradas), no es admin
     return false
   }
 }

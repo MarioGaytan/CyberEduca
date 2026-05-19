@@ -9,7 +9,7 @@ export const useAuthStore = create((set) => ({
   error: null,
 
   setUser: (user, firebaseUser) => set({ user, firebaseUser, loading: false, error: null }),
-  clearUser: () => set({ user: null, firebaseUser: null, loading: false, error: null }),
+  clearUser: () => set((state) => ({ user: null, firebaseUser: null, loading: false, error: state.error })),
   setLoading: (loading) => set({ loading }),
   setError: (error) => set({ error, loading: false }),
 }))

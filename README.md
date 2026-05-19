@@ -159,7 +159,7 @@ Ver [.env.example](.env.example). Crear `.env` local copiando el ejemplo y compl
 |---|---|---|
 | 0 | Fundamentos del Repositorio | ✅ DONE |
 | 1 | Autenticación y Seguridad | ✅ DONE |
-| 2 | Panel de Administración | 🔴 PENDIENTE |
+| 2 | Panel de Administración | ✅ DONE |
 | 3 | Sistema de Grupos para Docentes | 🔴 PENDIENTE |
 | 4 | Temas Educativos | 🔴 PENDIENTE |
 | 5 | Quizzes y Evaluación | 🔴 PENDIENTE |

@@ -1,37 +1,36 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Navigate } from 'react-router-dom'
 import { signInWithGoogle } from '@/firebase/auth.js'
 import { useAuthStore } from '@/store/authStore.js'
 
 export default function Login() {
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
-  const { user } = useAuthStore()
-  const navigate = useNavigate()
+  const [localError, setLocalError] = useState(null)
+  const { user, error: authError, setError } = useAuthStore()
 
-  // Si ya tiene sesión activa, redirigir directamente
+  // Si ya tiene sesión activa, redirigir
   if (user?.status === 'active') {
-    if (user.role === 'admin') navigate('/admin', { replace: true })
-    else if (user.role === 'docente') navigate('/teacher', { replace: true })
-    else navigate('/student', { replace: true })
+    if (user.role === 'admin') return <Navigate to="/admin" replace />
+    if (user.role === 'docente') return <Navigate to="/teacher" replace />
+    return <Navigate to="/student" replace />
   }
+
+  const error = localError || authError
 
   async function handleSignIn() {
     setLoading(true)
-    setError(null)
+    setLocalError(null)
+    setError(null) // limpiar error anterior del store
     try {
       await signInWithGoogle()
       // La redirección la maneja onAuthChange en App.jsx
     } catch (err) {
-      if (err.code === 'auth/popup-closed-by-user') {
-        // El usuario cerró el popup — no es un error real
-        setError(null)
+      if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
+        setLocalError(null)
       } else if (err.code === 'auth/popup-blocked') {
-        setError('El navegador bloqueó la ventana de inicio de sesión. Permite ventanas emergentes e intenta de nuevo.')
-      } else if (err.code === 'auth/cancelled-popup-request') {
-        setError(null)
+        setLocalError('El navegador bloqueó la ventana de inicio de sesión. Permite ventanas emergentes e intenta de nuevo.')
       } else {
-        setError('No se pudo iniciar sesión. Verifica tu conexión e intenta de nuevo.')
+        setLocalError('No se pudo iniciar sesión. Verifica tu conexión e intenta de nuevo.')
       }
     } finally {
       setLoading(false)
