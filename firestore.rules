@@ -3,8 +3,106 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // BLOQUE 0 — Todo cerrado hasta implementar auth (Bloque 1)
-    // Cambiar estas reglas en el Bloque 1 una vez que auth esté implementado
+    // ─── Helpers ────────────────────────────────────────────────────────────
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return request.auth.uid == uid;
+    }
+
+    function currentUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isSignedIn()
+        && currentUserData().role == 'admin'
+        && currentUserData().status == 'active';
+    }
+
+    function isDocente() {
+      return isSignedIn()
+        && currentUserData().role == 'docente'
+        && currentUserData().status == 'active';
+    }
+
+    function isStudent() {
+      return isSignedIn()
+        && currentUserData().role == 'estudiante'
+        && currentUserData().status == 'active';
+    }
+
+    // ─── users ──────────────────────────────────────────────────────────────
+
+    match /users/{uid} {
+      // Propio perfil + admin puede leer todos
+      allow read: if isOwner(uid) || isAdmin();
+
+      // Admin puede crear perfiles (CSV pre-registration con UID; raramente necesario)
+      // El propio usuario siempre puede crear su perfil en el primer login
+      allow create: if isOwner(uid) || isAdmin();
+
+      // Actualización: admin sin restricciones; usuario propio no puede tocar role/groupId/assignedGroups
+      // Excepción: pre_registered → active (primer login de usuario pre-registrado vía legacy)
+      allow update: if isAdmin()
+        || (
+          isOwner(uid)
+          && (
+            !request.resource.data.diff(resource.data)
+              .affectedKeys()
+              .hasAny(['role', 'groupId', 'assignedGroups'])
+            ||
+            (
+              resource.data.status == 'pre_registered'
+              && request.resource.data.status == 'active'
+              && !request.resource.data.diff(resource.data)
+                  .affectedKeys()
+                  .hasAny(['role', 'groupId', 'assignedGroups'])
+            )
+          )
+        );
+    }
+
+    // ─── pre_registered ──────────────────────────────────────────────────────
+    // Almacena alumnos pre-registrados por CSV. Clave = email del usuario.
+
+    match /pre_registered/{emailKey} {
+      // Admin gestiona; el propio usuario puede leer/borrar su entrada al hacer login
+      allow read, delete: if isAdmin() || (isSignedIn() && emailKey == request.auth.token.email);
+      allow create, update: if isAdmin();
+    }
+
+    // ─── groups ─────────────────────────────────────────────────────────────
+
+    match /groups/{groupId} {
+      allow read: if isAdmin()
+        || (isDocente() && resource.data.teacherIds.hasAny([request.auth.uid]))
+        || (isStudent() && resource.data.studentIds.hasAny([request.auth.uid]));
+      allow write: if isAdmin();
+    }
+
+    // ─── app_settings ────────────────────────────────────────────────────────
+
+    match /app_settings/global {
+      // Cualquier usuario autenticado puede leer (para verificar adminEmails en primer login)
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // ─── audit_logs ──────────────────────────────────────────────────────────
+
+    match /audit_logs/{logId} {
+      allow read: if isAdmin();
+      // En producción esto sería exclusivo de Cloud Functions; por ahora permite al admin
+      allow create: if isAdmin();
+    }
+
+    // ─── Colecciones futuras — cerradas hasta sus bloques ────────────────────
+    // topics, quiz_sets, quiz_attempts, rankings, games, game_scores se abren en Bloques 4-8
+
     match /{document=**} {
       allow read, write: if false;
     }

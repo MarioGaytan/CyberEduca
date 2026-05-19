@@ -415,7 +415,7 @@ VITE_APP_ENV=development          # development | production
 ---
 
 ### BLOQUE 1 — Autenticación y Seguridad de Acceso
-**Estado:** 🔴 PENDIENTE | **Prioridad:** CRÍTICA | **Prerequisitos:** BLOQUE 0 ✅
+**Estado:** ✅ DONE | **Prioridad:** CRÍTICA | **Prerequisitos:** BLOQUE 0 ✅
 
 #### Objetivo
 Implementar el flujo completo de login con Google, restricción de dominio institucional, creación automática de perfil en Firestore, y el sistema de estados de usuario. Este es el bloque de mayor impacto de seguridad.
@@ -478,7 +478,7 @@ Implementar el flujo completo de login con Google, restricción de dominio insti
 ---
 
 ### BLOQUE 2 — Panel de Administración
-**Estado:** 🔴 PENDIENTE | **Prioridad:** CRÍTICA | **Prerequisitos:** BLOQUE 1 ✅
+**Estado:** ✅ DONE | **Prioridad:** CRÍTICA | **Prerequisitos:** BLOQUE 1 ✅
 
 #### Objetivo
 Implementar el panel completo del admin. Este es el control de la plataforma: gestión de usuarios, grupos, contenido y configuración global. Sin este bloque, ningún maestro ni alumno puede operar.
