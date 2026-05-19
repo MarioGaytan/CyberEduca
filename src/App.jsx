@@ -1,31 +1,142 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { useEffect } from 'react'
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
+import { onAuthChange, isDomainAllowed, signOut } from '@/firebase/auth.js'
+import { createOrUpdateUserProfile } from '@/features/auth/userProfile.js'
+import { useAuthStore } from '@/store/authStore.js'
+import ProtectedRoute from '@/components/shared/ProtectedRoute.jsx'
 
-// Placeholder — las rutas reales se implementan en Bloque 1 y 2
-function App() {
+// Auth
+import Login from '@/pages/auth/Login.jsx'
+import PendingApproval from '@/pages/auth/PendingApproval.jsx'
+import Unauthorized from '@/pages/auth/Unauthorized.jsx'
+
+// Placeholders — se reemplazan en sus respectivos bloques
+import AdminDashboard from '@/pages/admin/Dashboard.jsx'
+import TeacherDashboard from '@/pages/teacher/Dashboard.jsx'
+import StudentInicio from '@/pages/student/Inicio.jsx'
+import NotFound from '@/pages/shared/NotFound.jsx'
+
+// Inicializa la suscripción de auth una sola vez en el árbol de la app
+function AuthProvider({ children }) {
+  const { setUser, clearUser, setError } = useAuthStore()
+
+  useEffect(() => {
+    const unsubscribe = onAuthChange(async (firebaseUser) => {
+      if (!firebaseUser) {
+        clearUser()
+        return
+      }
+
+      // Validar dominio institucional — segundo factor de seguridad después de hd en GoogleAuthProvider
+      if (!isDomainAllowed(firebaseUser.email)) {
+        await signOut()
+        setError('Solo cuentas del dominio institucional pueden acceder.')
+        return
+      }
+
+      try {
+        const profileSnap = await createOrUpdateUserProfile(firebaseUser)
+        setUser(profileSnap.data(), firebaseUser)
+      } catch (err) {
+        console.error('Error al cargar perfil de usuario:', err)
+        setError('Error al cargar tu perfil. Intenta de nuevo.')
+        clearUser()
+      }
+    })
+
+    return unsubscribe
+  }, [])
+
+  return children
+}
+
+function RootRedirect() {
+  const { user, loading } = useAuthStore()
+  const navigate = useNavigate()
+
+  if (loading) return null // ProtectedRoute ya muestra el spinner
+
+  if (!user) return <Navigate to="/login" replace />
+
+  if (user.status === 'pending' || user.status === 'pre_registered') {
+    return <Navigate to="/pending-approval" replace />
+  }
+  if (user.status === 'rejected' || user.status === 'suspended') {
+    return <Navigate to="/unauthorized" replace />
+  }
+
+  if (user.role === 'admin') return <Navigate to="/admin" replace />
+  if (user.role === 'docente') return <Navigate to="/teacher" replace />
+  if (user.role === 'estudiante') return <Navigate to="/student" replace />
+
+  return <Navigate to="/pending-approval" replace />
+}
+
+export default function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<WelcomePage />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <AuthProvider>
+        <Routes>
+          {/* Público */}
+          <Route path="/login" element={<Login />} />
+
+          {/* Semi-protegido: necesita sesión pero acepta cualquier status */}
+          <Route
+            path="/pending-approval"
+            element={
+              <ProtectedRoute allowPending>
+                <PendingApproval />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/unauthorized"
+            element={
+              <ProtectedRoute allowPending>
+                <Unauthorized />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Rutas por rol — Bloque 2+ implementa el contenido real */}
+          <Route
+            path="/admin/*"
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/teacher/*"
+            element={
+              <ProtectedRoute requiredRole="docente">
+                <TeacherDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/student/*"
+            element={
+              <ProtectedRoute requiredRole="estudiante">
+                <StudentInicio />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Raíz: redirige según estado de sesión */}
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute allowPending>
+                <RootRedirect />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </AuthProvider>
     </BrowserRouter>
   )
 }
-
-function WelcomePage() {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-neutral-50">
-      <div className="text-center space-y-4">
-        <h1 className="text-4xl font-bold text-primary">CiberEduca</h1>
-        <p className="text-neutral-600">Plataforma educativa en construcción — Bloque 0 ✅</p>
-        <p className="text-sm text-neutral-400">
-          Tailwind{' '}
-          <span className="text-blue-500 font-semibold">funcionando</span>
-          {' · '}React 19{' · '}Vite 6
-        </p>
-      </div>
-    </div>
-  )
-}
-
-export default App

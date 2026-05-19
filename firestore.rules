@@ -3,8 +3,80 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // BLOQUE 0 — Todo cerrado hasta implementar auth (Bloque 1)
-    // Cambiar estas reglas en el Bloque 1 una vez que auth esté implementado
+    // ─── Helpers ────────────────────────────────────────────────────────────
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return request.auth.uid == uid;
+    }
+
+    function currentUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isSignedIn()
+        && currentUserData().role == 'admin'
+        && currentUserData().status == 'active';
+    }
+
+    function isDocente() {
+      return isSignedIn()
+        && currentUserData().role == 'docente'
+        && currentUserData().status == 'active';
+    }
+
+    function isStudent() {
+      return isSignedIn()
+        && currentUserData().role == 'estudiante'
+        && currentUserData().status == 'active';
+    }
+
+    // ─── users ──────────────────────────────────────────────────────────────
+
+    match /users/{uid} {
+      // Cada usuario puede leer su propio perfil; el admin puede leer todos
+      allow read: if isOwner(uid) || isAdmin();
+
+      // Primer login: el usuario crea su propio documento
+      allow create: if isOwner(uid);
+
+      // Actualización propia: NUNCA role, groupId, ni assignedGroups
+      // Excepción: usuario pre_registered puede activarse (status: pre_registered → active)
+      allow update: if isAdmin()
+        || (
+          isOwner(uid)
+          && (
+            // Caso normal: solo campos no sensibles (photoURL, lastLogin, metadata)
+            !request.resource.data.diff(resource.data)
+              .affectedKeys()
+              .hasAny(['role', 'groupId', 'assignedGroups'])
+            ||
+            // Caso pre_registered: única transición permitida es pre_registered → active
+            (
+              resource.data.status == 'pre_registered'
+              && request.resource.data.status == 'active'
+              && !request.resource.data.diff(resource.data)
+                  .affectedKeys()
+                  .hasAny(['role', 'groupId', 'assignedGroups'])
+            )
+          )
+        );
+    }
+
+    // ─── app_settings ────────────────────────────────────────────────────────
+
+    match /app_settings/global {
+      // Cualquier usuario autenticado puede leer (necesario para verificar adminEmails en primer login)
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // ─── Todo lo demás cerrado hasta sus bloques correspondientes ────────────
+
     match /{document=**} {
       allow read, write: if false;
     }
